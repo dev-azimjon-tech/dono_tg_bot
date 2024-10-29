@@ -1,123 +1,120 @@
 import telebot
+from datetime import datetime, timedelta
 import sqlite3
-from contextlib import closing
-from datetime import datetime
 
-TOKEN = "8013244955:AAFDQjLpxvoUrXBdFqmRuKx4FMxJjc_W7Tw"  # Token
+# Initialize the bot with your token
+TOKEN = "8013244955:AAFDQjLpxvoUrXBdFqmRuKx4FMxJjc_W7Tw"
 bot = telebot.TeleBot(TOKEN)
 
-
-@bot.message_handler(commands=['start'])
-def hello(message):
-    bot.send_message(message.chat.id,"hello")
-# Helper function to connect to the database
+# Connect to the database
 def get_db_connection():
-    return sqlite3.connect('library.db')
+    conn = sqlite3.connect("library.db")
+    conn.row_factory = sqlite3.Row
+    return conn
 
-# Command to list available books
-@bot.message_handler(commands=['bo'])
+# /start command handler
+@bot.message_handler(commands=['start'])
+def send_welcome(message):
+    bot.reply_to(message, "Welcome to Nasli Dono bot! Use /borrow <book name> to borrow a book, or /return <book name> to return a book. Use /list to see available books.")
+
+# /list command handler to list available books with borrowed information
+@bot.message_handler(commands=['list'])
 def list_books(message):
-    with closing(get_db_connection()) as conn:
-        cursor = conn.cursor()
-        try:
-            cursor.execute("SELECT id, title, author FROM books WHERE available = 1")
-            books = cursor.fetchall()
-            if books:
-                response = "Available books:\n"
-                for book in books:
-                    response += f"{book[0]}. {book[1]} by {book[2]}\n"
-            else:
-                response = "No books are currently available."
-        except Exception as e:
-            response = "An error occurred while fetching books."
-            print(e)
+    conn = get_db_connection()
+    cursor = conn.cursor()
 
-    bot.send_message(message.chat.id, response)
+    cursor.execute("SELECT b.name, b.status, bb.student_name, bb.return_date FROM books b LEFT JOIN borrowed_books bb ON b.id = bb.book_id")
+    books = cursor.fetchall()
+    
+    available_books = []
+    for book in books:
+        if book["status"] == "Available":
+            available_books.append(f"{book['name']}: {book['status']}")
+        else:
+            # Show borrowed info with return date in day.month.year format
+            return_date_str = datetime.strptime(book["return_date"], '%Y-%m-%d %H:%M:%S').strftime('%d.%m.%Y')
+            available_books.append(f"{book['name']}: Borrowed by {book['student_name']} (time returning: {return_date_str})")
 
+    bot.reply_to(message, "Books available:\n" + "\n".join(available_books))
+    conn.close()
 
-
-# Command to borrow a book
-@bot.message_handler(commands=['bor'])
+# /borrow command handler
+@bot.message_handler(commands=['borrow'])
 def borrow_book(message):
-    try:
-        book_id = int(message.text.split()[1])  # Extract the book ID from the message
-    except (IndexError, ValueError):
-        bot.send_message(message.chat.id, "Please specify a valid book ID, e.g., /bor 1")
+    user = message.from_user.username
+    command, *book_name = message.text.split()
+    book_name = " ".join(book_name)
+    
+    if not book_name:
+        bot.reply_to(message, "Please specify the book name. Usage: /borrow <book name>")
         return
 
-    with closing(get_db_connection()) as conn:
-        cursor = conn.cursor()
+    conn = get_db_connection()
+    cursor = conn.cursor()
 
-        try:
-            # Check if the book is available
-            cursor.execute("SELECT title FROM books WHERE id = ? AND available = 1", (book_id,))
-            book = cursor.fetchone()
-            if not book:
-                bot.send_message(message.chat.id, "This book is not available.")
-                return
+    # Check if the book is available
+    cursor.execute("SELECT id, status FROM books WHERE name = ?", (book_name,))
+    book = cursor.fetchone()
 
-            # Mark the book as borrowed and add to borrowers list
-            cursor.execute("UPDATE books SET available = 0 WHERE id = ?", (book_id,))
-            cursor.execute("INSERT INTO borrowers (user_id, username, book_id) VALUES (?, ?, ?)",
-                           (message.from_user.id, message.from_user.username, book_id))
-            conn.commit()
-            bot.send_message(message.chat.id, f"You have successfully borrowed '{book[0]}'.")
-        except Exception as e:
-            bot.send_message(message.chat.id, "An error occurred while processing your request.")
-            print(e)
+    if book and book["status"] == "Available":
+        # Calculate return time (1 week from now)
+        borrow_time = datetime.now()
+        return_time = borrow_time + timedelta(weeks=1)
+        return_time_str = return_time.strftime('%Y-%m-%d %H:%M:%S')
 
-# Command to return a book
+        # Update book status and insert into borrowed_books
+        cursor.execute("UPDATE books SET status = 'Borrowed' WHERE id = ?", (book["id"],))
+        cursor.execute("INSERT INTO borrowed_books (book_id, student_name, return_date) VALUES (?, ?, ?)", (book["id"], user, return_time_str))
+
+        conn.commit()
+        bot.reply_to(message, f"You have borrowed '{book_name}'. Please return it by {return_time.strftime('%d.%m.%Y %H:%M:%S')}.")
+    else:
+        bot.reply_to(message, f"'{book_name}' is not available for borrowing.")
+    conn.close()
+
+# /return command handler
 @bot.message_handler(commands=['return'])
 def return_book(message):
-    try:
-        book_id = int(message.text.split()[1])  # Extract the book ID from the message
-    except (IndexError, ValueError):
-        bot.send_message(message.chat.id, "Please specify a valid book ID, e.g., /return 1")
+    user = message.from_user.username
+    command, *book_name = message.text.split()
+    book_name = " ".join(book_name)
+
+    if not book_name:
+        bot.reply_to(message, "Please specify the book name. Usage: /return <book name>")
         return
 
-    with closing(get_db_connection()) as conn:
-        cursor = conn.cursor()
+    conn = get_db_connection()
+    cursor = conn.cursor()
 
-        try:
-            # Check if the user has borrowed this book
-            cursor.execute("SELECT title FROM books WHERE id = ? AND available = 0", (book_id,))
-            book = cursor.fetchone()
-            if not book:
-                bot.send_message(message.chat.id, "This book is not borrowed by you or does not exist.")
-                return
+    # Find the borrowed book by user and name
+    cursor.execute("""
+    SELECT b.id, bb.return_date
+    FROM books b
+    JOIN borrowed_books bb ON b.id = bb.book_id
+    WHERE b.name = ? AND bb.student_name = ?
+    """, (book_name, user))
+    record = cursor.fetchone()
 
-            # Mark the book as available and remove from borrowers list
-            cursor.execute("UPDATE books SET available = 1 WHERE id = ?", (book_id,))
-            cursor.execute("DELETE FROM borrowers WHERE user_id = ? AND book_id = ?", (message.from_user.id, book_id))
-            conn.commit()
-            bot.send_message(message.chat.id, f"You have successfully returned '{book[0]}'.")
-        except Exception as e:
-            bot.send_message(message.chat.id, "An error occurred while processing your request.")
-            print(e)
+    if record:
+        # Check if the book is being returned within the allowed time
+        current_time = datetime.now()
+        return_time = datetime.strptime(record["return_date"], '%Y-%m-%d %H:%M:%S')
 
-# Command to check borrowed books by user
-@bot.message_handler(commands=['mybooks'])
-def my_books(message):
-    with closing(get_db_connection()) as conn:
-        cursor = conn.cursor()
+        if current_time <= return_time:
+            # Book returned on time
+            cursor.execute("UPDATE books SET status = 'Available' WHERE id = ?", (record["id"],))
+            cursor.execute("DELETE FROM borrowed_books WHERE book_id = ?", (record["id"],))
+            bot.reply_to(message, f"Thank you for returning '{book_name}' on time!")
+        else:
+            # Book returned late
+            bot.reply_to(message, f"You are late in returning '{book_name}'. Please be mindful of the borrowing period in the future.")
+            cursor.execute("UPDATE books SET status = 'Available' WHERE id = ?", (record["id"],))
+            cursor.execute("DELETE FROM borrowed_books WHERE book_id = ?", (record["id"],))
 
-        try:
-            # Fetch all books borrowed by the user
-            cursor.execute('''SELECT books.title FROM books
-                              JOIN borrowers ON books.id = borrowers.book_id
-                              WHERE borrowers.user_id = ?''', (message.from_user.id,))
-            borrowed_books = cursor.fetchall()
-            if borrowed_books:
-                response = "Your borrowed books:\n"
-                for book in borrowed_books:
-                    response += f"- {book[0]}\n"
-            else:
-                response = "You haven't borrowed any books."
-        except Exception as e:
-            response = "An error occurred while fetching your borrowed books."
-            print(e)
+        conn.commit()
+    else:
+        bot.reply_to(message, "It seems you have not borrowed this book or the name is incorrect.")
+    conn.close()
 
-    bot.send_message(message.chat.id, response)
-
-# Start the bot
+# Start polling
 bot.polling()

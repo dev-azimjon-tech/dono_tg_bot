@@ -1,39 +1,37 @@
 import sqlite3
 
-# Initialize database and tables
-conn = sqlite3.connect('library.db')
+# Connect to the SQLite database (it will be created if it doesn't exist)
+conn = sqlite3.connect("library.db")
 cursor = conn.cursor()
 
-# Create books table
-cursor.execute('''CREATE TABLE IF NOT EXISTS books (
+# Create the `books` table if it doesn't exist
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS books (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    title TEXT NOT NULL,
-    author TEXT NOT NULL,
-    available INTEGER DEFAULT 1
-)''')
+    name TEXT UNIQUE NOT NULL,
+    status TEXT NOT NULL DEFAULT 'Available'
+)
+""")
 
-# Create borrowers table
-cursor.execute('''CREATE TABLE IF NOT EXISTS borrowers (
+# Create the `borrowed_books` table if it doesn't exist
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS borrowed_books (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER,
-    username TEXT,
-    book_id INTEGER,
-    borrowed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-)''')
+    book_id INTEGER NOT NULL,
+    student_name TEXT NOT NULL,
+    return_date TEXT NOT NULL,
+    FOREIGN KEY (book_id) REFERENCES books (id)
+)
+""")
 
-# Insert sample books
-books = [
-    ('To Kill a Mockingbird', 'Harper Lee'),
-    ('1984', 'George Orwell'),
-    ('Pride and Prejudice', 'Jane Austen'),
-    ('The Great Gatsby', 'F. Scott Fitzgerald')
-]
+# Sample books for demonstration
+sample_books = ["Book 1", "Book 2", "Book 3"]
+for book in sample_books:
+    try:
+        cursor.execute("INSERT INTO books (name) VALUES (?)", (book,))
+    except sqlite3.IntegrityError:
+        pass  # Ignore if the book already exists
 
-# To avoid inserting duplicates
-existing_titles = [row[0] for row in cursor.execute("SELECT title FROM books").fetchall()]
-for book in books:
-    if book[0] not in existing_titles:
-        cursor.execute('INSERT INTO books (title, author) VALUES (?, ?)', book)
-
+# Commit changes and close the connection
 conn.commit()
 conn.close()
