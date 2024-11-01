@@ -1,4 +1,3 @@
-
 import telebot
 from datetime import datetime, timedelta
 from telebot import types
@@ -17,7 +16,15 @@ books = [
 borrowed_books = []
 students = {}  # Dictionary to store student information
 
+# Admin settings
+ADMIN_PASSWORD = "12345"  # The password for admin login
+logged_in_admins = {}  # Dictionary to track logged-in admin sessions by user ID
+
 # Helper functions
+def is_admin_logged_in(user_id):
+    """Check if a user is logged in as an admin."""
+    return logged_in_admins.get(user_id, False)
+
 def find_book(name):
     """Find a book by name."""
     for book in books:
@@ -39,11 +46,12 @@ def send_welcome(message):
     list_books_btn = types.KeyboardButton("📚 List Books")
     borrow_book_btn = types.KeyboardButton("📖 Borrow Book")
     return_book_btn = types.KeyboardButton("🔄 Return Book")
-    markup.add(list_books_btn, borrow_book_btn, return_book_btn)
+    login_admin_btn = types.KeyboardButton("🔑 Log in as Admin")
+    markup.add(list_books_btn, borrow_book_btn, return_book_btn, login_admin_btn)
     bot.send_message(message.chat.id, "Welcome to Nasli Dono bot! Choose an option:", reply_markup=markup)
 
 # Handle main menu button clicks
-@bot.message_handler(func=lambda message: message.text in ["📚 List Books", "📖 Borrow Book", "🔄 Return Book"])
+@bot.message_handler(func=lambda message: message.text in ["📚 List Books", "📖 Borrow Book", "🔄 Return Book", "🔑 Log in as Admin", "👮 Admin View", "🚪 Log Out"])
 def handle_menu_options(message):
     if message.text == "📚 List Books":
         list_books(message)
@@ -52,6 +60,15 @@ def handle_menu_options(message):
     elif message.text == "🔄 Return Book":
         bot.send_message(message.chat.id, "Enter the book name you want to return:")
         bot.register_next_step_handler(message, return_book)
+    elif message.text == "🔑 Log in as Admin":
+        ask_admin_password(message)
+    elif message.text == "👮 Admin View":
+        if is_admin_logged_in(message.from_user.id):
+            view_borrowed_books(message)
+        else:
+            bot.send_message(message.chat.id, "You are not logged in as an admin. Please log in first.")
+    elif message.text == "🚪 Log Out":
+        log_out_admin(message)
 
 # Command to list books with their status
 def list_books(message):
@@ -120,6 +137,42 @@ def return_book(message):
             bot.send_message(message.chat.id, "An error occurred, please try again.")
     else:
         bot.send_message(message.chat.id, "It seems you have not borrowed this book or the name is incorrect.")
+
+# Ask for admin password
+def ask_admin_password(message):
+    bot.send_message(message.chat.id, "Please enter the admin password:")
+    bot.register_next_step_handler(message, verify_admin_password)
+
+# Verify admin password
+def verify_admin_password(message):
+    if message.text == ADMIN_PASSWORD:
+        logged_in_admins[message.from_user.id] = True
+        markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
+        admin_view_btn = types.KeyboardButton("👮 Admin View")
+        logout_btn = types.KeyboardButton("🚪 Log Out")
+        markup.add(admin_view_btn, logout_btn)
+        bot.send_message(message.chat.id, "Login successful! You now have admin access.", reply_markup=markup)
+    else:
+        bot.send_message(message.chat.id, "Incorrect password. Access denied.")
+
+# Admin command to view all borrowed books
+def view_borrowed_books(message):
+    if borrowed_books:
+        response = "Borrowed books:\n\n"
+        for record in borrowed_books:
+            response += f"📘 {record['book_name']} - Borrowed by: {record['student_name']}, Return date: {record['return_date']}\n"
+    else:
+        response = "No books are currently borrowed."
+    bot.send_message(message.chat.id, response)
+
+# Admin logout handler
+def log_out_admin(message):
+    if is_admin_logged_in(message.from_user.id):
+        del logged_in_admins[message.from_user.id]
+        bot.send_message(message.chat.id, "You have been logged out as admin.")
+        send_welcome(message)  # Go back to the main menu
+    else:
+        bot.send_message(message.chat.id, "You are not currently logged in as an admin.")
 
 # Start polling
 try:
