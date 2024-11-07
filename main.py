@@ -2,11 +2,10 @@ import telebot
 from datetime import datetime, timedelta
 from telebot import types
 
-# Initialize the bot with your token
 TOKEN = "8013244955:AAFDQjLpxvoUrXBdFqmRuKx4FMxJjc_W7Tw"
 bot = telebot.TeleBot(TOKEN)
 
-# Sample data structures to replace the database
+
 books = [
     {"name": "Harry Poter 1", "status": "Available"},
     {"name": "Harry Poter 2", "status": "Available"},
@@ -16,32 +15,29 @@ books = [
 ]
 
 borrowed_books = []
-students = {}  # Dictionary to store student information
+students = {}  
 
-# Admin settings
-ADMIN_PASSWORD = "12345"  # The password for admin login
-logged_in_admins = {}  # Dictionary to track logged-in admin sessions by user ID
+
+ADMIN_PASSWORD = "12345"  
+logged_in_admins = {} 
 
 # Helper functions
-def is_admin_logged_in(user_id):
-    """Check if a user is logged in as an admin."""
+def is_admin_logged_in(user_id):  
     return logged_in_admins.get(user_id, False)
 
 def find_book(name):
-    """Find a book by name."""
     for book in books:
         if book["name"].lower() == name.lower():
             return book
     return None
 
 def find_borrowed_book(book_name, student_name):
-    """Find a borrowed book by name and student."""
     for record in borrowed_books:
         if record["book_name"].lower() == book_name.lower() and record["student_name"] == student_name:
             return record
     return None
 
-# /start command handler to welcome and display main menu
+
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
@@ -53,7 +49,7 @@ def send_welcome(message):
     markup.add(list_books_btn, borrow_book_btn, return_book_btn, login_admin_btn, about_btn)
     bot.send_message(message.chat.id, "Welcome to Nasli Dono bot! Choose an option:", reply_markup=markup)
 
-# Handle main menu button clicks
+
 @bot.message_handler(func=lambda message: message.text in ["📚 List Books", "📖 Borrow Book", "🔄 Return Book", "About Developer", "🔑 Log in as Admin", "👮 Admin View", "🚪 Log Out"])
 def handle_menu_options(message):
     if message.text == "📚 List Books":
@@ -75,7 +71,6 @@ def handle_menu_options(message):
     elif message.text == "🚪 Log Out":
         log_out_admin(message)
 
-# Command to list books with their status
 def list_books(message):
     response = "Available books:\n\n"
     for book in books:
@@ -87,18 +82,16 @@ def list_books(message):
             response += f"📘 {book['name']} - Status: {status}, Not borrowed\n"
     bot.send_message(message.chat.id, response)
 
-# Ask for student's name and surname before borrowing a book
+
 def ask_student_name(message):
     bot.send_message(message.chat.id, "Please enter your full name (Name Surname):")
     bot.register_next_step_handler(message, borrow_book_step_2)
 
 def borrow_book_step_2(message):
-    # Store student name
     students[message.from_user.id] = message.text
     bot.send_message(message.chat.id, "Enter the book name you want to borrow:")
     bot.register_next_step_handler(message, borrow_book_step_3)
 
-# Borrow book after student name is provided
 def borrow_book_step_3(message):
     student_name = students.get(message.from_user.id, "Unknown")
     book_name = message.text
@@ -119,7 +112,7 @@ def borrow_book_step_3(message):
     else:
         bot.send_message(message.chat.id, f"'{book_name}' is not available for borrowing.")
 
-# Return book handler
+
 def return_book(message):
     student_name = students.get(message.from_user.id, "Unknown")
     book_name = message.text
@@ -143,12 +136,12 @@ def return_book(message):
     else:
         bot.send_message(message.chat.id, "It seems you have not borrowed this book or the name is incorrect.")
 
-# Ask for admin password
+
 def ask_admin_password(message):
     bot.send_message(message.chat.id, "Please enter the admin password:")
     bot.register_next_step_handler(message, verify_admin_password)
 
-# Verify admin password
+
 def verify_admin_password(message):
     if message.text == ADMIN_PASSWORD:
         logged_in_admins[message.from_user.id] = True
@@ -160,7 +153,7 @@ def verify_admin_password(message):
     else:
         bot.send_message(message.chat.id, "Incorrect password. Access denied.")
 
-# Admin command to view all borrowed books
+
 def view_borrowed_books(message):
     if borrowed_books:
         response = "Borrowed books:\n\n"
@@ -170,16 +163,16 @@ def view_borrowed_books(message):
         response = "No books are currently borrowed."
     bot.send_message(message.chat.id, response)
 
-# Admin logout handler
+
 def log_out_admin(message):
     if is_admin_logged_in(message.from_user.id):
         del logged_in_admins[message.from_user.id]
         bot.send_message(message.chat.id, "You have been logged out as admin.")
-        send_welcome(message)  # Go back to the main menu
+        send_welcome(message) 
     else:
         bot.send_message(message.chat.id, "You are not currently logged in as an admin.")
 
-# About developer section
+
 def about(message):
     bot.reply_to(message, (
         "🤖 *Bot Developer:* Azimjon Sobirov\n"
@@ -190,7 +183,7 @@ def about(message):
         "Thank you for using Nasli Dono bot!"
     ), parse_mode='Markdown')
 
-# Start polling
+# Start the bot
 try:
     print("Running...")
     bot.polling(none_stop=True)
