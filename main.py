@@ -10,7 +10,8 @@ bot = telebot.TeleBot(TOKEN)
 books = [
     {"name": "Book 1", "status": "Available"},
     {"name": "Book 2", "status": "Available"},
-    {"name": "Book 5", "status": "Available"}
+    {"name": "Book 5", "status": "Available"},
+    {"name": "Book 6", "status": "Available"}
 ]
 
 borrowed_books = []
