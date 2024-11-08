@@ -8,9 +8,9 @@ bot = telebot.TeleBot(TOKEN)
 
 # Sample data structures to replace the database
 books = [
-    {"name": "Book 1", "status": "Available"},
-    {"name": "Book 2", "status": "Available"},
-    {"name": "Book 3", "status": "Available"}
+    {"name": "Harry Potter 1", "author": "J.K Rowling", "status": "Available"},
+    {"name": "Harry Potter 2", "author": "J.K Rowling", "status": "Available"},
+    {"name": "Harry Potter 3", "author": "J.K Rowling", "status": "Available"}
 ]
 
 borrowed_books = []
@@ -52,7 +52,7 @@ def send_welcome(message):
     bot.send_message(message.chat.id, "Welcome to Nasli Dono bot! Choose an option:", reply_markup=markup)
 
 # Handle main menu button clicks
-@bot.message_handler(func=lambda message: message.text in ["📚 List Books", "📖 Borrow Book", "🔄 Return Book", "About Developer", "🔑 Log in as Admin", "👮 Admin View", "🚪 Log Out"])
+@bot.message_handler(func=lambda message: message.text in ["📚 List Books", "📖 Borrow Book", "🔄 Return Book", "About Developer", "🔑 Log in as Admin", "👮 Admin View", "🚪 Log Out", "➕ Add Book"])
 def handle_menu_options(message):
     if message.text == "📚 List Books":
         list_books(message)
@@ -72,6 +72,11 @@ def handle_menu_options(message):
             bot.send_message(message.chat.id, "You are not logged in as an admin. Please log in first.")
     elif message.text == "🚪 Log Out":
         log_out_admin(message)
+    elif message.text == "➕ Add Book":
+        if is_admin_logged_in(message.from_user.id):
+            ask_book_details(message)
+        else:
+            bot.send_message(message.chat.id, "You need to be logged in as an admin to add books.")
 
 # Command to list books with their status
 def list_books(message):
@@ -80,10 +85,25 @@ def list_books(message):
         status = book["status"]
         borrowed_info = next((borrowed for borrowed in borrowed_books if borrowed["book_name"] == book["name"]), None)
         if borrowed_info:
-            response += f"📘 {book['name']} - Status: {status}, Borrowed by: {borrowed_info['student_name']}, Return date: {borrowed_info['return_date']}\n"
+            response += f"📘 {book['name']} by {book['author']} - Status: {status}, Borrowed by: {borrowed_info['student_name']}, Return date: {borrowed_info['return_date']}\n"
         else:
-            response += f"📘 {book['name']} - Status: {status}, Not borrowed\n"
+            response += f"📘 {book['name']} by {book['author']} - Status: {status}, Not borrowed\n"
     bot.send_message(message.chat.id, response)
+
+# Ask for book details from admin
+def ask_book_details(message):
+    bot.send_message(message.chat.id, "Please enter the book name and author in the format: 'Book Name - Author'")
+    bot.register_next_step_handler(message, add_book)
+
+# Add book to the list
+def add_book(message):
+    book_details = message.text.split(" - ")
+    if len(book_details) == 2:
+        book_name, author = book_details
+        books.append({"name": book_name.strip(), "author": author.strip(), "status": "Available"})
+        bot.send_message(message.chat.id, f"'{book_name.strip()}' by {author.strip()} has been added to the library!")
+    else:
+        bot.send_message(message.chat.id, "Invalid format. Please use the format: 'Book Name - Author'")
 
 # Ask for student's name and surname before borrowing a book
 def ask_student_name(message):
@@ -152,8 +172,9 @@ def verify_admin_password(message):
         logged_in_admins[message.from_user.id] = True
         markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
         admin_view_btn = types.KeyboardButton("👮 Admin View")
+        add_book_btn = types.KeyboardButton("➕ Add Book")
         logout_btn = types.KeyboardButton("🚪 Log Out")
-        markup.add(admin_view_btn, logout_btn)
+        markup.add(admin_view_btn, add_book_btn, logout_btn)
         bot.send_message(message.chat.id, "Login successful! You now have admin access.", reply_markup=markup)
     else:
         bot.send_message(message.chat.id, "Incorrect password. Access denied.")
@@ -163,7 +184,7 @@ def view_borrowed_books(message):
     if borrowed_books:
         response = "Borrowed books:\n\n"
         for record in borrowed_books:
-            response += f"📘 {record['book_name']} - Borrowed by: {record['student_name']}, Return date: {record['return_date']}\n"
+            response += f"📘 {record['book_name']} by {record['student_name']}, Return date: {record['return_date']}\n"
     else:
         response = "No books are currently borrowed."
     bot.send_message(message.chat.id, response)
