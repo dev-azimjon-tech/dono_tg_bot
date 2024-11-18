@@ -2,222 +2,277 @@ import telebot
 from datetime import datetime, timedelta
 from telebot import types
 
-# Initialize the bot with your token
-TOKEN = "8013244955:AAFDQjLpxvoUrXBdFqmRuKx4FMxJjc_W7Tw"
+# Use your existing token
+TOKEN = "8013244955:AAFDQjLpxvoUrXBdFqmRuKx4FMxJjc_W7Tw"  # Do not change
 bot = telebot.TeleBot(TOKEN)
 
-# Sample data structures to replace the database
+# Book data structure with IDs
 books = [
-    {"name": "Harry Potter 1", "author": "J.K Rowling", "status": "Available"},
-    {"name": "Harry Potter 2", "author": "J.K Rowling", "status": "Available"},
-    {"name": "Harry Potter 3", "author": "J.K Rowling", "status": "Available"},
-    {"name": "The Hobbit", "author": "J.R.R. Tolkien", "status": "Available"},
-    {"name": "1984", "author": "George Orwell", "status": "Available"},
-    {"name": "The Catcher in the Rye", "author": "J.D. Salinger", "status": "Available"}
+    {"id": 1, "name": "A Big Ball of String", "author": "Marion Holland", "status": "Available"},
+    {"id": 2, "name": "Charlotte's Web", "author": "E.B. White", "status": "Available"},
+    {"id": 3, "name": "1984", "author": "George Orwell", "status": "Available"},
+    {"id": 4, "name": "To Kill a Mockingbird", "author": "Harper Lee", "status": "Available"},
+    {"id": 5, "name": "Moby-Dick", "author": "Herman Melville", "status": "Available"},
+    {"id": 6, "name": "The Great Gatsby", "author": "F. Scott Fitzgerald", "status": "Available"},
+    {"id": 7, "name": "War and Peace", "author": "Leo Tolstoy", "status": "Available"},
+    {"id": 8, "name": "Crime and Punishment", "author": "Fyodor Dostoevsky", "status": "Available"},
+    {"id": 9, "name": "Pride and Prejudice", "author": "Jane Austen", "status": "Available"},
+    {"id": 10, "name": "The Hobbit", "author": "J.R.R. Tolkien", "status": "Available"},
 ]
 
-borrowed_books = []
-students = {}  # Dictionary to store student information
+borrowed_books = []  # List of borrowed books
+ADMIN_PASSWORD = "12345"  # Admin password
+logged_in_admins = {}  # Store admin login status
 
-# Admin settings
-ADMIN_PASSWORD = "12345"  # The password for admin login
-logged_in_admins = {}  # Dictionary to track logged-in admin sessions by user ID
+# Pagination settings
+BOOKS_PER_PAGE = 5
 
 # Helper functions
 def is_admin_logged_in(user_id):
     return logged_in_admins.get(user_id, False)
 
-def find_book(name):
+def find_book_by_id(book_id):
     for book in books:
-        if book["name"].lower() == name.lower():
+        if book["id"] == book_id:
             return book
     return None
 
-def find_borrowed_book(book_name, student_name):
-    for record in borrowed_books:
-        if record["book_name"].lower() == book_name.lower() and record["student_name"] == student_name:
-            return record
+def find_book_by_name(name):
+    for book in books:
+        if name.lower() in book["name"].lower():
+            return book
     return None
 
 # /start command handler
-@bot.message_handler(commands=['start'])
+@bot.message_handler(commands=["start"])
 def send_welcome(message):
     markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
-    markup.add("📚 List Books", "📖 Borrow Book", "🔄 Return Book", "🔑 Log in as Admin", "About Developer")
+    list_books_btn = types.KeyboardButton("📚 List Books")
+    search_books_btn = types.KeyboardButton("🔍 Search Books")
+    borrow_book_btn = types.KeyboardButton("📖 Borrow Book")
+    return_book_btn = types.KeyboardButton("🔄 Return Book")
+    login_admin_btn = types.KeyboardButton("🔑 Log in as Admin")
+    about_btn = types.KeyboardButton("ℹ️ About Developer")
+    markup.add(list_books_btn, search_books_btn, borrow_book_btn, return_book_btn, login_admin_btn, about_btn)
     bot.send_message(message.chat.id, "Welcome to Nasli Dono bot! Choose an option:", reply_markup=markup)
 
-# Handle main menu button clicks
-@bot.message_handler(func=lambda message: message.text in ["📚 List Books", "📖 Borrow Book", "🔄 Return Book", "About Developer", "🔑 Log in as Admin", "👮 Admin View", "🚪 Log Out", "➕ Add Book", "🔍 Search Books"])
-def handle_menu_options(message):
-    if message.text == "📚 List Books":
-        list_books(message)
-    elif message.text == "📖 Borrow Book":
-        ask_student_name(message)
-    elif message.text == "About Developer":
-        about(message)
-    elif message.text == "🔄 Return Book":
-        bot.send_message(message.chat.id, "Enter the book name you want to return:")
-        bot.register_next_step_handler(message, return_book)
-    elif message.text == "🔑 Log in as Admin":
-        ask_admin_password(message)
-    elif message.text == "🔍 Search Books":
-        bot.send_message(message.chat.id, "Enter the name or author of the book you want to search:")
-        bot.register_next_step_handler(message, search_books_handler)
-    elif message.text == "👮 Admin View":
-        if is_admin_logged_in(message.from_user.id):
-            show_admin_view(message)
-        else:
-            bot.send_message(message.chat.id, "You need to log in as an admin first.")
-    elif message.text == "➕ Add Book":
-        if is_admin_logged_in(message.from_user.id):
-            ask_add_book(message)
-        else:
-            bot.send_message(message.chat.id, "You need to log in as an admin first.")
+# List books with pagination
+@bot.message_handler(func=lambda message: message.text == "📚 List Books")
+def list_books(message):
+    send_books_page(message, 1)
 
-# Command to list books with pagination
-def list_books(message, page=1):
-    start_index = (page - 1) * 5
-    end_index = start_index + 5
-    page_books = books[start_index:end_index]
-    
-    response = "Available books:\n\n"
-    for book in page_books:
+def send_books_page(message, page):
+    start = (page - 1) * BOOKS_PER_PAGE
+    end = start + BOOKS_PER_PAGE
+    books_page = books[start:end]
+    total_pages = -(-len(books) // BOOKS_PER_PAGE)
+
+    response = f"📚 Available books (Page {page}/{total_pages}):\n\n"
+    for book in books_page:
         status = book["status"]
-        response += f"📘 {book['name']} by {book['author']} - Status: {status}\n"
-    
-    if end_index < len(books):
-        markup = types.ReplyKeyboardMarkup(row_width=1, resize_keyboard=True)
-        markup.add("🔍 Search Books", "Next Page")
-        bot.send_message(message.chat.id, response + "\nYou can search other books, press 'Search Books' button", reply_markup=markup)
+        response += f"📘 ID: {book['id']} | {book['name']} by {book['author']} - Status: {status}\n"
+
+    markup = types.InlineKeyboardMarkup()
+    if page > 1:
+        markup.add(types.InlineKeyboardButton("⬅️ Previous", callback_data=f"prev_{page}"))
+    if end < len(books):
+        markup.add(types.InlineKeyboardButton("➡️ Next", callback_data=f"next_{page}"))
+    bot.send_message(message.chat.id, response, reply_markup=markup)
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("prev_") or call.data.startswith("next_"))
+def paginate_books(call):
+    current_page = int(call.data.split("_")[1])
+    new_page = current_page - 1 if "prev" in call.data else current_page + 1
+    send_books_page(call.message, new_page)
+
+# Search books
+@bot.message_handler(func=lambda message: message.text == "🔍 Search Books")
+def search_books(message):
+    bot.send_message(message.chat.id, "Enter the name or a keyword to search for books:")
+    bot.register_next_step_handler(message, process_search)
+
+def process_search(message):
+    keyword = message.text.lower()
+    results = [book for book in books if keyword in book["name"].lower()]
+    if results:
+        response = "🔍 Search results:\n\n"
+        for book in results:
+            status = book["status"]
+            response += f"📘 ID: {book['id']} | {book['name']} by {book['author']} - Status: {status}\n"
     else:
-        markup = types.ReplyKeyboardMarkup(row_width=1, resize_keyboard=True)
-        markup.add("🔍 Search Books")
-        bot.send_message(message.chat.id, response + "\nEnd of list. You can search other books.", reply_markup=markup)
+        response = "❌ No books found matching your search. Try another keyword."
+    bot.send_message(message.chat.id, response)
 
-# Admin View
-def show_admin_view(message):
-    markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
-    markup.add("➕ Add Book", "🔍 Search Books", "🚪 Log Out")
-    bot.send_message(message.chat.id, "Admin View:\nSelect an action.", reply_markup=markup)
+# Admin login
+# Admin menu after login
+@bot.message_handler(func=lambda message: message.text == "🔑 Log in as Admin")
+def admin_login(message):
+    bot.send_message(message.chat.id, "Enter the admin password:")
+    bot.register_next_step_handler(message, process_admin_login)
 
-# Search books handler
-def search_books_handler(message):
-    query = message.text
-    search_results = search_books(query)
-    if search_results:
-        response = "Search results:\n\n"
-        for book in search_results:
-            response += f"📘 {book['name']} by {book['author']} - Status: {book['status']}\n"
-        markup = types.ReplyKeyboardMarkup(row_width=1, resize_keyboard=True)
-        markup.add("🔍 Search Books", "Back to Menu")
-        bot.send_message(message.chat.id, response, reply_markup=markup)
-    else:
-        bot.send_message(message.chat.id, "No books found for that search.")
-
-# Ask for student's name
-def ask_student_name(message):
-    bot.send_message(message.chat.id, "Please enter your full name (Name Surname):")
-    bot.register_next_step_handler(message, borrow_book_step_3)
-
-# Borrow book after student name is provided
-def borrow_book_step_3(message):
-    student_name = message.text
-    students[message.from_user.id] = student_name
-    bot.send_message(message.chat.id, "Enter the book name you want to borrow:")
-    bot.register_next_step_handler(message, finalize_borrow_book)
-
-def finalize_borrow_book(message):
-    student_name = students.get(message.from_user.id, "Unknown")
-    book_name = message.text
-    book = find_book(book_name)
-    if book and book["status"] == "Available":
-        borrow_time = datetime.now()
-        return_time = borrow_time + timedelta(weeks=1)
-        book["status"] = "Borrowed"
-        borrowed_books.append({
-            "book_name": book["name"],
-            "student_name": student_name,
-            "return_date": return_time.strftime('%Y-%m-%d %H:%M:%S')
-        })
-        bot.send_message(message.chat.id, f"You have borrowed '{book_name}'. Please return it by {return_time}.")
-    else:
-        bot.send_message(message.chat.id, f"'{book_name}' is not available for borrowing.")
-
-# Return book handler
-def return_book(message):
-    student_name = students.get(message.from_user.id, "Unknown")
-    book_name = message.text
-    record = find_borrowed_book(book_name, student_name)
-    if record:
-        book = find_book(book_name)
-        book["status"] = "Available"
-        borrowed_books.remove(record)
-        bot.send_message(message.chat.id, f"Thank you for returning '{book_name}'!")
-    else:
-        bot.send_message(message.chat.id, "It seems you have not borrowed this book or the name is incorrect.")
-
-# Admin password functions
-def ask_admin_password(message):
-    bot.send_message(message.chat.id, "Please enter the admin password:")
-    bot.register_next_step_handler(message, verify_admin_password)
-
-def verify_admin_password(message):
+def process_admin_login(message):
     if message.text == ADMIN_PASSWORD:
         logged_in_admins[message.from_user.id] = True
-        bot.send_message(message.chat.id, "Login successful! You now have admin access.")
-        show_admin_view(message)
+        bot.send_message(message.chat.id, "✅ You are now logged in as admin.")
+        show_admin_menu(message)
     else:
-        bot.send_message(message.chat.id, "Incorrect password. Access denied.")
+        bot.send_message(message.chat.id, "❌ Incorrect password. Try again.")
 
-def about(message):
-    bot.send_message(
-        message.chat.id,
-        "*Bot Developer:* Azimjon Sobirov\n"
-        "*Telegram:* @lazy\\_proger",
-        parse_mode='MarkdownV2'
-    )
-# Search books by name or author
-def search_books(query):
-    results = []
-    for book in books:
-        if query.lower() in book["name"].lower() or query.lower() in book["author"].lower():
-            results.append(book)
-    return results
+def show_admin_menu(message):
+    markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
+    list_books_btn = types.KeyboardButton("📚 List Books")
+    add_book_btn = types.KeyboardButton("➕ Add Book")
+    edit_book_btn = types.KeyboardButton("✏️ Edit Book")
+    delete_book_btn = types.KeyboardButton("❌ Delete Book")
+    logout_btn = types.KeyboardButton("🚪 Logout")
+    markup.add(list_books_btn, add_book_btn, edit_book_btn, delete_book_btn, logout_btn)
+    bot.send_message(message.chat.id, "Welcome to the Admin Menu. Choose an option:", reply_markup=markup)
 
-# Admin functions for adding books (optional)
-def ask_add_book(message):
-    bot.send_message(message.chat.id, "Enter the name of the book you want to add:")
-    bot.register_next_step_handler(message, add_book_step_2)
+# Check if the user is an admin before allowing them to access the admin menu
+@bot.message_handler(func=lambda message: message.text == "📚 List Books")
+def list_books(message):
+    if is_admin_logged_in(message.from_user.id):
+        send_books_page(message, 1)
+    else:
+        bot.send_message(message.chat.id, "❌ You must be logged in as an admin to view this.")
 
-def add_book_step_2(message):
-    book_name = message.text
-    bot.send_message(message.chat.id, "Enter the author of the book:")
-    bot.register_next_step_handler(message, add_book_step_3, book_name)
+@bot.message_handler(func=lambda message: message.text == "➕ Add Book")
+def add_book(message):
+    if is_admin_logged_in(message.from_user.id):
+        bot.send_message(message.chat.id, "Enter the name of the new book:")
+        bot.register_next_step_handler(message, process_add_book)
+    else:
+        bot.send_message(message.chat.id, "❌ You must be logged in as an admin to add books.")
 
-def add_book_step_3(message, book_name):
-    author_name = message.text
-    books.append({"name": book_name, "author": author_name, "status": "Available"})
-    bot.send_message(message.chat.id, f"Book '{book_name}' by {author_name} added successfully!")
+def process_add_book(message):
+    new_book_name = message.text
+    bot.send_message(message.chat.id, "Enter the author's name:")
+    bot.register_next_step_handler(message, lambda msg: process_add_author(msg, new_book_name))
 
-# Log out functionality
-@bot.message_handler(func=lambda message: message.text == "🚪 Log Out")
-def logout(message):
-    if message.from_user.id in logged_in_admins:
+def process_add_author(message, new_book_name):
+    new_author_name = message.text
+    new_book = {"id": len(books) + 1, "name": new_book_name, "author": new_author_name, "status": "Available"}
+    books.append(new_book)
+    bot.send_message(message.chat.id, f"✅ Book '{new_book_name}' by {new_author_name} has been added.")
+
+@bot.message_handler(func=lambda message: message.text == "✏️ Edit Book")
+def edit_book(message):
+    if is_admin_logged_in(message.from_user.id):
+        bot.send_message(message.chat.id, "Enter the ID of the book you want to edit:")
+        bot.register_next_step_handler(message, process_edit_book)
+    else:
+        bot.send_message(message.chat.id, "❌ You must be logged in as an admin to edit books.")
+
+def process_edit_book(message):
+    try:
+        book_id = int(message.text)
+        book = find_book_by_id(book_id)
+        if book:
+            bot.send_message(message.chat.id, f"Editing book '{book['name']}' by {book['author']}.")
+            bot.send_message(message.chat.id, "Enter the new name for the book:")
+            bot.register_next_step_handler(message, lambda msg: process_edit_name(msg, book_id, book))
+        else:
+            bot.send_message(message.chat.id, "❌ Book not found.")
+    except ValueError:
+        bot.send_message(message.chat.id, "❌ Invalid input. Please enter a numeric ID.")
+
+def process_edit_name(message, book_id, book):
+    new_name = message.text
+    book["name"] = new_name
+    bot.send_message(message.chat.id, "Enter the new author's name:")
+    bot.register_next_step_handler(message, lambda msg: process_edit_author(msg, book_id, book))
+
+def process_edit_author(message, book_id, book):
+    new_author = message.text
+    book["author"] = new_author
+    bot.send_message(message.chat.id, f"✅ Book '{book['name']}' by {book['author']} has been updated.")
+
+@bot.message_handler(func=lambda message: message.text == "❌ Delete Book")
+def delete_book(message):
+    if is_admin_logged_in(message.from_user.id):
+        bot.send_message(message.chat.id, "Enter the ID of the book you want to delete:")
+        bot.register_next_step_handler(message, process_delete_book)
+    else:
+        bot.send_message(message.chat.id, "❌ You must be logged in as an admin to delete books.")
+
+def process_delete_book(message):
+    try:
+        book_id = int(message.text)
+        book = find_book_by_id(book_id)
+        if book:
+            books.remove(book)
+            bot.send_message(message.chat.id, f"✅ Book '{book['name']}' by {book['author']} has been deleted.")
+        else:
+            bot.send_message(message.chat.id, "❌ Book not found.")
+    except ValueError:
+        bot.send_message(message.chat.id, "❌ Invalid input. Please enter a numeric ID.")
+
+# Admin logout
+@bot.message_handler(func=lambda message: message.text == "🚪 Logout")
+def admin_logout(message):
+    if is_admin_logged_in(message.from_user.id):
         del logged_in_admins[message.from_user.id]
-        bot.send_message(message.chat.id, "You have logged out successfully.")
+        bot.send_message(message.chat.id, "✅ You have successfully logged out.")
+        send_welcome(message)  # Send the welcome message back after logout
     else:
-        bot.send_message(message.chat.id, "You are not logged in.")
+        bot.send_message(message.chat.id, "❌ You are not logged in.")
 
+
+# Borrow book
+@bot.message_handler(func=lambda message: message.text == "📖 Borrow Book")
+def borrow_book(message):
+    bot.send_message(message.chat.id, "Enter the ID of the book you want to borrow:")
+    bot.register_next_step_handler(message, process_borrow)
+
+def process_borrow(message):
+    try:
+        book_id = int(message.text)
+        book = find_book_by_id(book_id)
+        if book and book["status"] == "Available":
+            book["status"] = "Borrowed"
+            borrowed_books.append({"book_id": book_id, "student_id": message.from_user.id})
+            bot.send_message(message.chat.id, f"✅ You have successfully borrowed '{book['name']}'.")
+        else:
+            bot.send_message(message.chat.id, "❌ Book not available or invalid ID.")
+    except ValueError:
+        bot.send_message(message.chat.id, "❌ Invalid input. Please enter a numeric ID.")
+
+# Return book
+@bot.message_handler(func=lambda message: message.text == "🔄 Return Book")
+def return_book(message):
+    bot.send_message(message.chat.id, "Enter the ID of the book you want to return:")
+    bot.register_next_step_handler(message, process_return)
+
+def process_return(message):
+    try:
+        book_id = int(message.text)
+        book = find_book_by_id(book_id)
+        if book and book["status"] == "Borrowed":
+            book["status"] = "Available"
+            borrowed_books[:] = [b for b in borrowed_books if b["book_id"] != book_id]
+            bot.send_message(message.chat.id, f"✅ You have successfully returned '{book['name']}'.")
+        else:
+            bot.send_message(message.chat.id, "❌ Book not found or already available.")
+    except ValueError:
+        bot.send_message(message.chat.id, "❌ Invalid input. Please enter a numeric ID.")
+
+# About Developer
+@bot.message_handler(func=lambda message: message.text == "ℹ️ About Developer")
+def about_developer(message):
+    response = (
+        "👨‍💻 *About the Developer:*\n\n"
+        "📛 *Name:* Azimjon Sobirov\n"
+        "🌍 *Location:* Khujand, Tajikistan\n"
+        "🔧 *Expertise:* Backend Development, Flask, Python, Telegram Bots\n"
+        "🎓 *Roles:* Intern at ANUR.tech, Volunteer at American Space Khujand\n"
+        "🚀 *Achievements:* NASA Space Apps 2024 Participant\n"
+        "📩 *Contact:* azimjonsobirov@example.com\n"
+    )
+    bot.send_message(message.chat.id, response, parse_mode="Markdown")
+
+# Run the bot
 try:
+    print("Bot is running...")
     bot.polling(none_stop=True)
 except Exception as e:
     print(f"Error starting bot: {e}")
-
-
-# def about(message):
-#     bot.send_message(
-#         message.chat.id,
-#         "*Bot Developer:* Azimjon Sobirov\n"
-#         "*Telegram:* @lazy\\_proger",
-#         parse_mode='MarkdownV2'
-#     )
