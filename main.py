@@ -9,16 +9,52 @@ bot = telebot.TeleBot(TOKEN)
 # Book data structure with IDs
 books = [
     {"id": 1, "name": "A Big Ball of String", "author": "Marion Holland", "status": "Available"},
-    {"id": 2, "name": "Charlotte's Web", "author": "E.B. White", "status": "Available"},
-    {"id": 3, "name": "1984", "author": "George Orwell", "status": "Available"},
-    {"id": 4, "name": "To Kill a Mockingbird", "author": "Harper Lee", "status": "Available"},
-    {"id": 5, "name": "Moby-Dick", "author": "Herman Melville", "status": "Available"},
-    {"id": 6, "name": "The Great Gatsby", "author": "F. Scott Fitzgerald", "status": "Available"},
-    {"id": 7, "name": "War and Peace", "author": "Leo Tolstoy", "status": "Available"},
-    {"id": 8, "name": "Crime and Punishment", "author": "Fyodor Dostoevsky", "status": "Available"},
-    {"id": 9, "name": "Pride and Prejudice", "author": "Jane Austen", "status": "Available"},
-    {"id": 10, "name": "The Hobbit", "author": "J.R.R. Tolkien", "status": "Available"},
+    {"id": 2, "name": "A Child’s Garden of Versus (orange book)", "author": "Robert Louis Stevenson", "status": "Available"},
+    {"id": 3, "name": "A Child’s Garden of Versus (grey book)", "author": "Robert Louis Stevenson", "status": "Available"},
+    {"id": 4, "name": "A Fly Went By", "author": "Mike McClintock", "status": "Available"},
+    {"id": 5, "name": "A Grain of Rice", "author": "Helena Clare Pittman", "status": "Available"},
+    {"id": 6, "name": "A Grain of Rice", "author": "Helena Clare Pittman", "status": "Available"},
+    {"id": 7, "name": "A Lion to Guard Us", "author": "Clyde Robert Bulla", "status": "Available"},
+    {"id": 8, "name": "A Lion to Guard Us", "author": "Clyde Robert Bulla", "status": "Available"},
+    {"id": 9, "name": "A POKE in the I", "author": "Paul B. Janeczko", "status": "Available"},
+    {"id": 10, "name": "A Scandal in Bohemia", "author": "Arthur Conan Doyle", "status": "Available"},
+    {"id": 11, "name": "A Simple Soul. Level 5", "author": "Gustave Flaubert", "status": "Available"},
+    {"id": 12, "name": "An Anthology of Short Stories. Level 2", "author": "Henry Lawson", "status": "Available"},
+    {"id": 13, "name": "Amelia Bedelia, level 2", "author": "Peggy Parish", "status": "Available"},
+    {"id": 14, "name": "Amelia Bedelia, level 2", "author": "Peggy Parish", "status": "Available"},
+    {"id": 15, "name": "American Adventures", "author": "Morrie Greenberg", "status": "Available"},
+    {"id": 16, "name": "A Bear Called Paddington", "author": "Michael Bond", "status": "Available"},
+    {"id": 17, "name": "And Then What Happened, PAUL REVERE?", "author": "Pictures By Margot Tomes", "status": "Available"},
+    {"id": 18, "name": "Balto", "author": "Natalie Standiford", "status": "Available"},
+    {"id": 19, "name": "Beat the Story-Drum Pum-Pum", "author": "Ashley Bryan", "status": "Available"},
+    {"id": 20, "name": "Brown Bear, Brown Bear", "author": "Bill Martin Jr. & Eric Carle", "status": "Available"},
+    {"id": 21, "name": "Caddie Woodlawn", "author": "Carol Ryrie Brink", "status": "Available"},
+    {"id": 22, "name": "What's the Big Idea, Ben Franklin?", "author": "Margot Tomes", "status": "Available"},
+    {"id": 23, "name": "Carry On, Mr. Bowditch", "author": "Jean Lee Latham", "status": "Available"},
+    {"id": 24, "name": "Capyboppy", "author": "Bill Peet", "status": "Available"},
+    {"id": 25, "name": "Can't You Make Them Behave, King George?", "author": "Jean Fritz", "status": "Available"},
+    {"id": 26, "name": "Castle Diary", "author": "Richard Platt", "status": "Available"},
+    {"id": 27, "name": "Christopher Columbus", "author": "Norman Green", "status": "Available"},
+    {"id": 28, "name": "White Stallion of Lipizza", "author": "Marguerite Henry", "status": "Available"},
+    {"id": 29, "name": "Chucaro, Wild Pony of the Pampa", "author": "Francis Kalnay", "status": "Available"},
+    {"id": 30, "name": "Columbus in Japan?", "author": "Michael Johnstone", "status": "Available"},
+    {"id": 31, "name": "Cornstalks: A Bushel of Poems", "author": "James Stevenson", "status": "Available"},
+    {"id": 32, "name": "Daniel's Duck, Level 3", "author": "Clyde Robert Bulla", "status": "Available"},
+    {"id": 33, "name": "Dear Mr. Henshaw", "author": "Beverly Cleary", "status": "Available"},
+    {"id": 34, "name": "Detective in Togas", "author": "Henry Winterfeld", "status": "Available"},
+    {"id": 35, "name": "The Story of Doctor Dolittle", "author": "Hugh Lofting", "status": "Available"},
+    {"id": 36, "name": "English-Uzbek-Russian Picture Dictionary", "author": "Zamirjon Butaev", "status": "Available"},
+    {"id": 37, "name": "Eric the Red and Leif the Lucky", "author": "Barbara Schiller", "status": "Available"},
+    {"id": 38, "name": "Everyday Things", "author": "Eliot Humberstone", "status": "Available"},
+    {"id": 39, "name": "Exploration of North America", "author": "Coloring Book", "status": "Available"},
+    {"id": 40, "name": "Fables", "author": "Arnold Lobel", "status": "Available"},
+    {"id": 41, "name": "Favorite poems of childhood", "author": "Philip Smith", "status": "Available"},
+    {"id": 42, "name": "Finding the titanic", "author": "Robert D.Ballard", "status": "Available"},
+    {"id": 43, "name": "", "author": "Arnold Lobel", "status": "Available"},
+    {"id": 44, "name": "Fables", "author": "Arnold Lobel", "status": "Available"},
+    {"id": 45, "name": "Fables", "author": "Arnold Lobel", "status": "Available"},
 ]
+
 
 borrowed_books = []  # List of borrowed books
 ADMIN_PASSWORD = "12345"  # Admin password
@@ -213,7 +249,7 @@ def admin_logout(message):
     if is_admin_logged_in(message.from_user.id):
         del logged_in_admins[message.from_user.id]
         bot.send_message(message.chat.id, "✅ You have successfully logged out.")
-        send_welcome(message)  # Send the welcome message back after logout
+        send_welcome(message)  
     else:
         bot.send_message(message.chat.id, "❌ You are not logged in.")
 
@@ -262,11 +298,11 @@ def about_developer(message):
     response = (
         "👨‍💻 *About the Developer:*\n\n"
         "📛 *Name:* Azimjon Sobirov\n"
-        "🌍 *Location:* Khujand, Tajikistan\n"
+        "🌍 *Location:* Jabbor Rasulvov, Tajikistan\n"
         "🔧 *Expertise:* Backend Development, Flask, Python, Telegram Bots\n"
         "🎓 *Roles:* Intern at ANUR.tech, Volunteer at American Space Khujand\n"
         "🚀 *Achievements:* NASA Space Apps 2024 Participant\n"
-        "📩 *Contact:* azimjonsobirov@example.com\n"
+        "📩 *Contact:* azimjon.sobirov.09@mail.ru@\n"
     )
     bot.send_message(message.chat.id, response, parse_mode="Markdown")
 
