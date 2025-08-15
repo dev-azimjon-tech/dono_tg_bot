@@ -1,0 +1,18 @@
+[
+    {
+        "id": 1,
+        "title": "Test Book 1",
+        "author": "Test Author 1",
+        "available": true,
+        "tags": ["Good book", "Tech", "AI"],
+        "description": "Test book description"
+    },
+    {
+        "id": 2,
+        "title": "Test Book 2",
+        "author": "Test Author 2",
+        "available": true,
+        "tags": ["Good book1", "Tech1", "AI1"],
+        "description": "Test book description"
+    }
+]
