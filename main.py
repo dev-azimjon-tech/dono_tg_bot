@@ -10,6 +10,9 @@ TOKEN = os.getenv("TELEGRAM_TOKEN")
 bot = telebot.TeleBot(TOKEN)
 
 USERS_FILE = "user.json"
+BOOKS_FILE = "books.json"
+
+
 
 if os.path.exists(USERS_FILE):
     with open(USERS_FILE, "r") as f:
@@ -24,6 +27,11 @@ def save_users():
 
 def is_auntecated(user_id):
     return str(user_id) in users
+
+
+def load_books():
+    with open(BOOKS_FILE, "r") as f:
+        return json.load(f)
 
 
 def main_menu(message):
@@ -101,6 +109,16 @@ def logout(message):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     markup.add("Register", "Log In")
     bot.send_message(message.chat.id, "You've been logged out.", reply_markup=markup)
+
+
+@bot.message_handler(func=lambda message: message.text and message.text.strip().lower() == "list of books")
+def list_books(message):
+    try:
+        with open(BOOKS_FILE, "rb") as f:
+            bot.send_document(message.chat.id, f)
+    except FileNotFoundError:
+        bot.send_message(message.chat.id, "Books file not found.")
+
 
 
 
