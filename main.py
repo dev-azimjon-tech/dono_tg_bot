@@ -13,6 +13,12 @@ USERS_FILE = "user.json"
 BOOKS_FILE = "books.json"
 
 
+if os.path.exists(BOOKS_FILE):
+    with open(BOOKS_FILE, "r") as f:
+        books = json.load(f)
+else:
+    books = []
+
 
 if os.path.exists(USERS_FILE):
     with open(USERS_FILE, "r") as f:
@@ -20,14 +26,16 @@ if os.path.exists(USERS_FILE):
 else:
     users = {}
 
+def save_books():
+    with open(BOOKS_FILE, "w") as f:
+        json.dump(books, f, indent=4)
 
 def save_users():
     with open(USERS_FILE, "w") as f:
-        json.dump(users,f, indent=2)
+        json.dump(users, f, indent=4)
 
-def is_auntecated(user_id):
+def is_authenticated(user_id):
     return str(user_id) in users
-
 
 def load_books():
     with open(BOOKS_FILE, "r") as f:
@@ -35,7 +43,6 @@ def load_books():
 
 
 def main_menu(message):
-    user_id = str(message.from_user.id)
     markup_main = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
     button1 = types.KeyboardButton("List of Books")
     button2 = types.KeyboardButton("Borrowing Book")
@@ -46,10 +53,11 @@ def main_menu(message):
     markup_main.add(button1, button2, button3, button4, button5, log_out)
     bot.send_message(message.chat.id, "Main Menu:", reply_markup=markup_main)
 
+
 @bot.message_handler(commands=["start"])
 def start(message):
     user_id = str(message.from_user.id)
-    if is_auntecated(user_id):
+    if is_authenticated(user_id):
         main_menu(message)
     else:
         markup_start = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
@@ -58,9 +66,10 @@ def start(message):
         markup_start.add(btn_reg, btn_log)
         bot.send_message(
             message.chat.id,
-            "Hi! This bot lets you to borrow books and read it."
+            "Hi! This bot lets you borrow books and read them."
         )
         bot.send_message(message.chat.id, "Please Register or Log In to use the bot", reply_markup=markup_start)
+
 
 @bot.message_handler(func=lambda m: m.text and m.text.strip().lower() == "register")
 def register(message):
@@ -75,7 +84,13 @@ def register(message):
 def process_register_name(message):
     name = message.text.strip()
     user_id = str(message.from_user.id)
-    users[user_id] = {"name": name}
+
+
+    users[user_id] = {
+        "name": name,
+        "borrowed": []
+    }
+
     msg = bot.send_message(message.chat.id, "Now enter your phone number:")
     bot.register_next_step_handler(msg, process_register_phone)
 
@@ -85,7 +100,10 @@ def process_register_phone(message):
     if user_id in users:
         users[user_id]["phone"] = phone
         save_users()
-        bot.send_message(message.chat.id, f"Registration complete!\nName: {users[user_id]['name']}\nPhone: {phone}")
+        bot.send_message(
+            message.chat.id,
+            f"Registration complete!\nName: {users[user_id]['name']}\nPhone: {phone}"
+        )
         main_menu(message)
     else:
         bot.send_message(message.chat.id, "Something went wrong. Please type 'register' again.")
@@ -93,7 +111,7 @@ def process_register_phone(message):
 @bot.message_handler(func=lambda m: m.text and m.text.strip().lower() == "log in")
 def login(message):
     user_id = str(message.from_user.id)
-    if is_auntecated(user_id):
+    if is_authenticated(user_id):
         bot.send_message(message.chat.id, "You have already logged in!")
         main_menu(message)
     else:
@@ -120,6 +138,48 @@ def list_books(message):
         bot.send_message(message.chat.id, "Books file not found.")
 
 
+@bot.message_handler(func=lambda message: message.text and message.text.strip().lower() == "borrowing book")
+def borrowing_book(message):
+    bot.send_message(message.chat.id, "Enter the book ID or name to borrow: ")
+    bot.register_next_step_handler(message, process_borrow)
+
+def process_borrow(message):
+    user_id = str(message.from_user.id)
+    query = message.text.strip()
+
+
+    book = None
+    for b in books:
+        if str(b["id"]) == query or b["title"].lower() == query.lower():
+            book = b
+            break
+
+    if not book:
+        bot.send_message(message.chat.id, "❌ Book not found. Try again.")
+        return
+
+    if book.get("available", True) is False:
+        bot.send_message(message.chat.id, f"❌ '{book['title']}' is already borrowed.")
+        return
+
+    book["available"] = False
+
+
+    if user_id not in users:
+        users[user_id] = {"borrowed": []}
+    if "borrowed" not in users[user_id]:
+        users[user_id]["borrowed"] = []
+
+    users[user_id]["borrowed"].append(book["title"])
+
+    save_books()
+    save_users()
+
+    bot.send_message(
+        message.chat.id,
+        f"✅ You have successfully borrowed: {book['title']}\n"
+        f"Please remember to return it on time!"
+    )
 
 
 if __name__ == "__main__":
