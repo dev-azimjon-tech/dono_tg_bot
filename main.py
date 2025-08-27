@@ -301,6 +301,46 @@ def process_return_date(message):
         f"Please remember to return it on time!"
     )
 
+
+@bot.message_handler(func=lambda message: message.text and message.text.strip().lower() == "returning book")
+def return_book(message):
+    bot.send_message(message.chat.id, "Enter the Book ID or Title you want to return:")
+    bot.register_next_step_handler(message, process_return)
+
+
+def process_return(message):
+    user_id = str(message.from_user.id)
+    query = message.text.strip()
+
+    if user_id not in users or "borrowed" not in users[user_id]:
+        bot.send_message(message.chat.id, "⚠ You have not borrowed any books.")
+        return
+
+    borrowed_list = users[user_id]["borrowed"]
+
+
+    borrowed_book = next((b for b in borrowed_list if str(b.get("id")) == query), None)
+
+    if not borrowed_book:
+        borrowed_book = next((b for b in borrowed_list if b["title"].lower() == query.lower()), None)
+
+    if not borrowed_book:
+        bot.send_message(message.chat.id, "❌ You did not borrow this book or it does not exist.")
+        return
+
+    for b in books:
+        if str(b.get("id")) == query or b["title"].lower() == query.lower():
+            b["available"] = True
+            break
+
+    borrowed_list.remove(borrowed_book)
+
+    save_books()
+    save_users()
+
+    bot.send_message(message.chat.id, f"✅ Returned '{borrowed_book['title']}' successfully!")
+
+
 if __name__ == "__main__":
     print("Bot is running...")
     bot.remove_webhook()
