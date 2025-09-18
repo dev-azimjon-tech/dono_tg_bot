@@ -3,7 +3,7 @@
         "id": 1,
         "title": "Test Book 1",
         "author": "Test Author 1",
-        "available": false,
+        "available": true,
         "tags": [
             "Good book",
             "Tech",
@@ -15,7 +15,7 @@
         "id": 2,
         "title": "Test Book 2",
         "author": "Test Author 2",
-        "available": false,
+        "available": true,
         "tags": [
             "Good book1",
             "Tech1",

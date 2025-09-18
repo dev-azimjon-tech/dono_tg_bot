@@ -16,7 +16,6 @@ USERS_FILE = "user.json"
 BOOKS_FILE = "books.json"
 ADMINS_FILE = "admins.json"
 
-
 if os.path.exists(BOOKS_FILE):
     with open(BOOKS_FILE, "r") as f:
         books = json.load(f)
@@ -37,7 +36,6 @@ if os.path.exists(USERS_FILE):
 else:
     users = {}
 
-
 def save_admins():
     with open(ADMINS_FILE, "w") as f:
         json.dump(admins, f, indent=4)
@@ -56,7 +54,6 @@ def is_authenticated(user_id):
 def load_books():
     with open(BOOKS_FILE, "r") as f:
         return json.load(f)
-
 
 def admin_panel_btns(message):
     markup_admin = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
@@ -83,26 +80,21 @@ def admin_panel_options(message):
 def see_users(message):
     bot.send_message(message.chat.id, "See Users Feature is coming soon....")
 
-
 @bot.message_handler(func=lambda message:message.text.lower() == "returning date of books")
 def ret_date_book(message):
     bot.send_message(message.chat.id, "Returning Date of Books Feature is coming soon....")
-
 
 @bot.message_handler(func=lambda message:message.text.lower() == "add book")
 def add_book(message):
     bot.send_message(message.chat.id, "Add Book Feature is coming soon....")
 
-
 @bot.message_handler(func=lambda message:message.text.lower() == "delete book")
 def delete_book(message):
     bot.send_message(message.chat.id, "Deleting Book Feature is coming soon....")
 
-
 @bot.message_handler(func=lambda message:message.text.lower() == "settings")
 def admin_settings(message):
     bot.send_message(message.chat.id, "Admin Settings Feature is coming soon....")
-
 
 @bot.message_handler(func=lambda message:message.text.lower() == "back")
 def sback(message):
@@ -118,7 +110,6 @@ def main_menu(message):
     log_out = types.KeyboardButton("Log Out")
     markup_main.add(button1, button2, button3, button4, button5, log_out)
     bot.send_message(message.chat.id, "Main Menu:", reply_markup=markup_main)
-
 
 @bot.message_handler(commands=["start"])
 def start(message):
@@ -136,7 +127,6 @@ def start(message):
             "Hi! This bot lets you borrow books and read them."
         )
         bot.send_message(message.chat.id, "Please Register or Log In to use the bot", reply_markup=markup_start)
-
 
 @bot.message_handler(func=lambda message: message.text and message.text.strip().lower() == "log in as admin")
 def log_admin(message):
@@ -185,7 +175,7 @@ def process_admin_password(message):
         bot.send_message(message.chat.id, "⚠ Something went wrong. Please try logging in again.")
         return
     username = admins[user_id]["pending_username"]
-    if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:  # ✅ fixed comparison
+    if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
         name = admins[user_id]["pending_name"]
         email = admins[user_id]["pending_email"]
         admins[user_id] = {"name": name, "email": email}
@@ -199,7 +189,6 @@ def process_admin_password(message):
         del admins[user_id]
         save_admins()
         bot.send_message(message.chat.id, "❌ Invalid username or password. Try again.")
-
 
 @bot.message_handler(func=lambda m: m.text and m.text.strip().lower() == "register")
 def register(message):
@@ -252,7 +241,6 @@ def logout(message):
     markup.add("Register", "Log In", "Log In as Admin")
     bot.send_message(message.chat.id, "You've been logged out.", reply_markup=markup)
 
-
 @bot.message_handler(func=lambda message: message.text and message.text.strip().lower() == "list of books")
 def list_books(message):
     try:
@@ -263,8 +251,8 @@ def list_books(message):
 
 @bot.message_handler(func=lambda message: message.text and message.text.strip().lower() == "borrowing book")
 def borrowing_book(message):
-    bot.send_message(message.chat.id, "Enter the book ID or name to borrow: ")
-    bot.register_next_step_handler(message, process_borrow)
+    msg = bot.send_message(message.chat.id, "Enter the book ID or name to borrow: ")
+    bot.register_next_step_handler(msg, process_borrow)
 
 def process_borrow(message):
     user_id = str(message.from_user.id)
@@ -277,7 +265,7 @@ def process_borrow(message):
     if not book:
         bot.send_message(message.chat.id, "❌ Book not found. Try again.")
         return
-    if book.get("available", True) is False:
+    if not book.get("available", True):
         bot.send_message(message.chat.id, f"❌ '{book['title']}' is already borrowed.")
         return
     users[user_id]["pending_borrow"] = book["id"]
@@ -300,7 +288,7 @@ def process_return_date(message):
     if "borrowed" not in users[user_id]:
         users[user_id]["borrowed"] = []
     users[user_id]["borrowed"].append({
-        "id": book["id"],  # ✅ store ID for return
+        "id": book["id"],
         "title": book["title"],
         "return_date": return_date
     })
@@ -316,40 +304,30 @@ def process_return_date(message):
 
 @bot.message_handler(func=lambda message: message.text and message.text.strip().lower() == "returning book")
 def return_book(message):
-    bot.send_message(message.chat.id, "Enter the Book ID or Title you want to return:")
-    bot.register_next_step_handler(message, process_return)
+    msg = bot.send_message(message.chat.id, "Enter the Book ID or Title you want to return:")
+    bot.register_next_step_handler(msg, process_return)
 
 def process_return(message):
     user_id = str(message.from_user.id)
     query = message.text.strip()
-
     if user_id not in users or "borrowed" not in users[user_id]:
         bot.send_message(message.chat.id, "⚠ You have not borrowed any books.")
         return
-
     borrowed_list = users[user_id]["borrowed"]
-
-
     borrowed_book = next((b for b in borrowed_list if str(b.get("id")) == query), None)
     if not borrowed_book:
         borrowed_book = next((b for b in borrowed_list if b["title"].lower() == query.lower()), None)
-
     if not borrowed_book:
         bot.send_message(message.chat.id, "❌ You did not borrow this book or it does not exist.")
         return
-
     for b in books:
         if str(b.get("id")) == str(borrowed_book["id"]) or b["title"].lower() == borrowed_book["title"].lower():
             b["available"] = True
             break
-
     borrowed_list.remove(borrowed_book)
-
     save_books()
     save_users()
-
     bot.send_message(message.chat.id, f"✅ Returned '{borrowed_book['title']}' successfully!")
-
 
 if __name__ == "__main__":
     print("Bot is running...")
