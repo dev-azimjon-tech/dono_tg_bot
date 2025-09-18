@@ -3,6 +3,9 @@ from telebot import types
 import json
 import os
 from dotenv import load_dotenv
+from datetime import datetime
+import threading
+import time
 
 load_dotenv()
 
@@ -54,6 +57,23 @@ def is_authenticated(user_id):
 def load_books():
     with open(BOOKS_FILE, "r") as f:
         return json.load(f)
+
+def reminder_checker():
+    while True:
+        now = datetime.now().date()
+        for user_id, user_data in users.items():
+            borrowed = user_data.get("borrowed", [])
+            for book in borrowed:
+                try:
+                    return_date = datetime.strptime(book["return_date"], "%Y-%m-%d").date()
+                    if now >= return_date:
+                        bot.send_message(
+                            user_id,
+                            f"⏰ Reminder: Please return '{book['title']}'!\nReturning date was: {book['return_date']}"
+                        )
+                except Exception:
+                    continue
+        time.sleep(60)
 
 def admin_panel_btns(message):
     markup_admin = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
@@ -297,9 +317,7 @@ def process_return_date(message):
     save_users()
     bot.send_message(
         message.chat.id,
-        f"✅ You have successfully borrowed: {book['title']}\n"
-        f"📅 Returning date: {return_date}\n"
-        f"Please remember to return it on time!"
+        f"✅ You have successfully borrowed: {book['title']}\n📅 Returning date: {return_date}\nPlease remember to return it on time!"
     )
 
 @bot.message_handler(func=lambda message: message.text and message.text.strip().lower() == "returning book")
@@ -329,8 +347,41 @@ def process_return(message):
     save_users()
     bot.send_message(message.chat.id, f"✅ Returned '{borrowed_book['title']}' successfully!")
 
+@bot.message_handler(func=lambda message: message.text.lower() == "about developer")
+def about_dev(message):
+    markup_dev = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
+    back_menu = types.KeyboardButton("Back to Menu")
+    markup_dev.add(back_menu)
+    dev_info = (
+        "👨‍💻 *About Developer*\n\n"
+        "My name is *Azimjon Sobirov*, I am a young backend developer.\n"
+        "I work with *Python, Flask, and Telegram Bots*.\n"
+        "I constantly improve my skills in programming, testing with *pytest*, "
+        "and building useful projects.\n\n"
+        "🌟 My current focus:\n"
+        "- Writing clean and tested code\n"
+        "- Learning backend development deeply\n"
+        "- Building creative web applications and bots\n\n"
+        "💡 My goal is to grow as a professional programmer, "
+        "create innovative projects, and help people with technology."
+    )
+    bot.send_message(message.chat.id, dev_info, reply_markup=markup_dev, parse_mode="Markdown")
+
+@bot.message_handler(func=lambda message:message.text.lower() == "back to menu")
+def back_menu_dev(message):
+    main_menu(message)
+
+@bot.message_handler(func=lambda message:message.text.lower() == "advertisments")
+def ads(message):
+    markup_ads = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
+    back_menu = types.KeyboardButton("Back to Menu")
+    markup_ads.add(back_menu)
+    bot.send_message(message.chat.id, "To buy advertisements write to admin: @lazy_proger")
+
 if __name__ == "__main__":
     print("Bot is running...")
     bot.remove_webhook()
     print("Webhook removed!")
+    reminder_thread = threading.Thread(target=reminder_checker, daemon=True)
+    reminder_thread.start()
     bot.polling(none_stop=True)

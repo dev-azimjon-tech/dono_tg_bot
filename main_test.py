@@ -17,11 +17,10 @@ class TestStart(unittest.TestCase):
         self.assertIn("Hi! This bot lets you borrow books and read them.", welcome_text)
 
 
-
 class TestRegister(unittest.TestCase):
 
     @patch("main.bot.send_message")
-    def test_register_feature(self,mock_message):
+    def test_register_feature(self, mock_message):
         message = MagicMock()
         message.chat.id = 809
         message.from_user.id = 809
@@ -31,6 +30,7 @@ class TestRegister(unittest.TestCase):
         args, _ = mock_message.call_args
         self.assertEqual(args[0], 809)
         self.assertIn("Enter your name:", args[1])
+
 
 class TestBorrowHandler(unittest.TestCase):
 
@@ -65,8 +65,6 @@ class TestAdminPage(unittest.TestCase):
         self.assertIn("Please Choose the Option:", args[1])
 
 
-
-
 class TestReturnBook(unittest.TestCase):
 
     @patch("main.bot.send_message")
@@ -81,3 +79,35 @@ class TestReturnBook(unittest.TestCase):
         args, _ = mock_message.call_args
         self.assertEqual(args[0], 2)
         self.assertIn("Enter the Book ID or Title you want to return:", args[1])
+
+
+class TestAboutDeveloper(unittest.TestCase):
+
+    @patch("main.bot.send_message")
+    def test_about_dev(self, mock_message):
+        message = MagicMock()
+        message.chat.id = 205
+        message.from_user.id = 205
+        main.users = {}
+        main.books = []
+        main.about_dev(message)
+        self.assertTrue(mock_message.called)
+        args, _ = mock_message.call_args
+        self.assertEqual(args[0], 205)
+        self.assertIn("developer", args[1].lower())  # safer check
+
+
+class TestAds(unittest.TestCase):
+
+    @patch("main.bot.send_message")
+    def test_ads_message(self, mock_message):
+        message = MagicMock()
+        message.chat.id = 105
+        message.from_user.id = 105
+        main.users = {}
+        main.books = []
+        main.ads(message)  # FIX: Call ads handler, not return_book
+        self.assertTrue(mock_message.called)
+        args, _ = mock_message.call_args
+        self.assertEqual(args[0], 105)
+        self.assertIn("To buy advertisements write to admin: @lazy_proger", args[1])
