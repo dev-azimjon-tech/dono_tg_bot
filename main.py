@@ -98,7 +98,14 @@ def admin_panel_options(message):
 
 @bot.message_handler(func=lambda message:message.text.lower() == "users")
 def see_users(message):
-    bot.send_message(message.chat.id, "See Users Feature is coming soon....")
+    try:
+        with open(USERS_FILE, "r", encoding="utf-8") as f:
+            users_data = json.load(f)
+        users_text = json.dumps(users_data, indent=4, ensure_ascii=False)
+        bot.send_message(message.chat.id, f"Users:\n{users_text}")
+    except FileNotFoundError:
+        bot.send_message(message.chat.id, "Users file not found.")
+
 
 @bot.message_handler(func=lambda message:message.text.lower() == "returning date of books")
 def ret_date_book(message):
@@ -264,8 +271,10 @@ def logout(message):
 @bot.message_handler(func=lambda message: message.text and message.text.strip().lower() == "list of books")
 def list_books(message):
     try:
-        with open(BOOKS_FILE, "rb") as f:
-            bot.send_document(message.chat.id, f)
+        with open(BOOKS_FILE, "r", encoding="utf-8") as f:
+            book_data = json.load(f)
+        books_text = json.dumps(book_data, indent=4, ensure_ascii=False)
+        bot.send_message(message.chat.id, f"Users:\n{books_text}")
     except FileNotFoundError:
         bot.send_message(message.chat.id, "Books file not found.")
 

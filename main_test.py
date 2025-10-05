@@ -106,8 +106,26 @@ class TestAds(unittest.TestCase):
         message.from_user.id = 105
         main.users = {}
         main.books = []
-        main.ads(message)  # FIX: Call ads handler, not return_book
+        main.ads(message)
         self.assertTrue(mock_message.called)
         args, _ = mock_message.call_args
         self.assertEqual(args[0], 105)
         self.assertIn("To buy advertisements write to admin: @lazy_proger", args[1])
+
+
+class TestSeeUsers(unittest.TestCase):
+
+    @patch("main.bot.send_message")
+    @patch("builtins.open")
+    @patch("json.load")
+    def test_see_users(self, mock_json_load, mock_open, mock_send_message):
+        message = MagicMock()
+        message.chat.id = 123
+        mock_json_load.return_value = {"1": {"name": "Test User"}}
+        import main
+        main.see_users(message)
+        self.assertTrue(mock_send_message.called)
+        args, _ = mock_send_message.call_args
+        self.assertEqual(args[0], 123)
+        self.assertIn('"name": "Test User"', args[1])
+        self.assertIn("Users:", args[1])
