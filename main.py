@@ -96,32 +96,159 @@ def admin_panel_options(message):
     )
     bot.send_message(message.chat.id, "Please Choose a Option: ", reply_markup=markup_admin_options)
 
-@bot.message_handler(func=lambda message:message.text.lower() == "users")
+@bot.message_handler(func=lambda message: message.text.lower() == "users")
 def see_users(message):
     try:
         with open(USERS_FILE, "r", encoding="utf-8") as f:
             users_data = json.load(f)
-        users_text = json.dumps(users_data, indent=4, ensure_ascii=False)
-        bot.send_message(message.chat.id, f"Users:\n{users_text}")
+        if not users_data:
+            bot.send_message(message.chat.id, "📭 No users found.")
+            return
+        response = "📚 *List of Registered Users:*\n\n"
+        for user_id, user_info in users_data.items():
+            name = user_info.get("name", "Unknown")
+            phone = user_info.get("phone", "Not provided")
+            borrowed_books = user_info.get("borrowed", [])
+            if borrowed_books:
+                borrowed_text = "\n".join(
+                    [f"  - {book['title']} (Return: {book['return_date']})" for book in borrowed_books]
+                )
+            else:
+                borrowed_text = "  - None"
+            response += (
+                f"👤 *Name:* {name}\n"
+                f"📞 *Phone:* {phone}\n"
+                f"📖 *Borrowed Books:*\n{borrowed_text}\n\n"
+            )
+        bot.send_message(message.chat.id, response, parse_mode="Markdown")
     except FileNotFoundError:
-        bot.send_message(message.chat.id, "Users file not found.")
+        bot.send_message(message.chat.id, "❌ Users file not found.")
+    except Exception as e:
+        bot.send_message(message.chat.id, f"⚠ Error while loading users: {e}")
 
-
-@bot.message_handler(func=lambda message:message.text.lower() == "returning date of books")
+@bot.message_handler(func=lambda message: message.text.lower() == "returning date of books")
 def ret_date_book(message):
-    bot.send_message(message.chat.id, "Returning Date of Books Feature is coming soon....")
+    try:
+        with open(USERS_FILE, "r", encoding="utf-8") as f:
+            users_data = json.load(f)
+        result = "📚 *Returning Dates of Borrowed Books:*\n\n"
+        found_any = False
+        for user_id, user_info in users_data.items():
+            name = user_info.get("name", "Unknown")
+            borrowed = user_info.get("borrowed", [])
+            if borrowed:
+                found_any = True
+                result += f"👤 *{name}*:\n"
+                for book in borrowed:
+                    result += f"  - {book['title']} → Return by: *{book['return_date']}*\n"
+                result += "\n"
+        if not found_any:
+            result = "✅ No books are currently borrowed."
+        bot.send_message(message.chat.id, result, parse_mode="Markdown")
+    except Exception as e:
+        bot.send_message(message.chat.id, f"⚠ Error loading borrowed books: {e}")
 
-@bot.message_handler(func=lambda message:message.text.lower() == "add book")
+@bot.message_handler(func=lambda message: message.text.lower() == "add book")
 def add_book(message):
-    bot.send_message(message.chat.id, "Add Book Feature is coming soon....")
+    msg = bot.send_message(message.chat.id, "📖 Enter the *book title*:", parse_mode="Markdown")
+    bot.register_next_step_handler(msg, process_book_title)
 
-@bot.message_handler(func=lambda message:message.text.lower() == "delete book")
+def process_book_title(message):
+    title = message.text.strip()
+    msg = bot.send_message(message.chat.id, "✍️ Enter the *author name*:", parse_mode="Markdown")
+    bot.register_next_step_handler(msg, process_book_author, title)
+
+def process_book_author(message, title):
+    author = message.text.strip()
+    msg = bot.send_message(message.chat.id, "🔢 Enter the *book ID* (unique number):", parse_mode="Markdown")
+    bot.register_next_step_handler(msg, process_book_id, title, author)
+
+def process_book_id(message, title, author):
+    book_id = message.text.strip()
+    if any(str(b["id"]) == book_id for b in books):
+        bot.send_message(message.chat.id, "❌ A book with this ID already exists.")
+        return
+    new_book = {"id": book_id, "title": title, "author": author, "available": True}
+    books.append(new_book)
+    save_books()
+    bot.send_message(
+        message.chat.id,
+        f"✅ Book added successfully!\n\n📘 *Title:* {title}\n✍️ *Author:* {author}\n🆔 *ID:* {book_id}",
+        parse_mode="Markdown"
+    )
+
+@bot.message_handler(func=lambda message: message.text.lower() == "delete book")
 def delete_book(message):
-    bot.send_message(message.chat.id, "Deleting Book Feature is coming soon....")
+    msg = bot.send_message(message.chat.id, "🗑 Enter the *book ID or title* to delete:", parse_mode="Markdown")
+    bot.register_next_step_handler(msg, process_delete_book)
 
-@bot.message_handler(func=lambda message:message.text.lower() == "settings")
+def process_delete_book(message):
+    query = message.text.strip()
+    global books
+    book_to_delete = None
+    for b in books:
+        if str(b["id"]) == query or b["title"].lower() == query.lower():
+            book_to_delete = b
+            break
+    if not book_to_delete:
+        bot.send_message(message.chat.id, "❌ Book not found.")
+        return
+    books = [b for b in books if b != book_to_delete]
+    save_books()
+    bot.send_message(
+        message.chat.id,
+        f"✅ Book '{book_to_delete['title']}' was deleted successfully!",
+        parse_mode="Markdown"
+    )
+
+@bot.message_handler(func=lambda message: message.text.lower() == "settings")
 def admin_settings(message):
-    bot.send_message(message.chat.id, "Admin Settings Feature is coming soon....")
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+    btn1 = types.KeyboardButton("Change Admin Username")
+    btn2 = types.KeyboardButton("Change Admin Password")
+    btn_back = types.KeyboardButton("Back")
+    markup.add(btn1, btn2, btn_back)
+    bot.send_message(message.chat.id, "⚙️ Admin Settings:", reply_markup=markup)
+
+@bot.message_handler(func=lambda message: message.text.lower() == "change admin username")
+def change_admin_username(message):
+    msg = bot.send_message(message.chat.id, "🆔 Enter the *new admin username*:", parse_mode="Markdown")
+    bot.register_next_step_handler(msg, process_change_username)
+
+def process_change_username(message):
+    new_username = message.text.strip()
+    os.environ["ADMIN_USERNAME"] = new_username
+    with open(".env", "r", encoding="utf-8") as f:
+        lines = f.readlines()
+    with open(".env", "w", encoding="utf-8") as f:
+        for line in lines:
+            if line.startswith("ADMIN_USERNAME="):
+                f.write(f"ADMIN_USERNAME={new_username}\n")
+            else:
+                f.write(line)
+    global ADMIN_USERNAME
+    ADMIN_USERNAME = new_username
+    bot.send_message(message.chat.id, f"✅ Admin username successfully changed to: *{new_username}*", parse_mode="Markdown")
+
+@bot.message_handler(func=lambda message: message.text.lower() == "change admin password")
+def change_admin_password(message):
+    msg = bot.send_message(message.chat.id, "🔒 Enter the *new admin password*:", parse_mode="Markdown")
+    bot.register_next_step_handler(msg, process_change_password)
+
+def process_change_password(message):
+    new_password = message.text.strip()
+    os.environ["ADMIN_PASSWORD"] = new_password
+    with open(".env", "r", encoding="utf-8") as f:
+        lines = f.readlines()
+    with open(".env", "w", encoding="utf-8") as f:
+        for line in lines:
+            if line.startswith("ADMIN_PASSWORD="):
+                f.write(f"ADMIN_PASSWORD={new_password}\n")
+            else:
+                f.write(line)
+    global ADMIN_PASSWORD
+    ADMIN_PASSWORD = new_password
+    bot.send_message(message.chat.id, "✅ Admin password successfully changed!", parse_mode="Markdown")
 
 @bot.message_handler(func=lambda message:message.text.lower() == "back")
 def sback(message):
@@ -149,10 +276,7 @@ def start(message):
         btn_log = types.KeyboardButton("Log In")
         btn_admin = types.KeyboardButton("Log In as Admin")
         markup_start.add(btn_reg, btn_log, btn_admin)
-        bot.send_message(
-            message.chat.id,
-            "Hi! This bot lets you borrow books and read them."
-        )
+        bot.send_message(message.chat.id, "Hi! This bot lets you borrow books and read them.")
         bot.send_message(message.chat.id, "Please Register or Log In to use the bot", reply_markup=markup_start)
 
 @bot.message_handler(func=lambda message: message.text and message.text.strip().lower() == "log in as admin")
@@ -231,22 +355,26 @@ def process_register_name(message):
     name = message.text.strip()
     user_id = str(message.from_user.id)
     users[user_id] = {"name": name, "borrowed": []}
-    msg = bot.send_message(message.chat.id, "Now enter your phone number:")
-    bot.register_next_step_handler(msg, process_register_phone)
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    phone_btn = types.KeyboardButton("📞 Send my phone number", request_contact=True)
+    markup.add(phone_btn)
+    bot.send_message(message.chat.id, "Now share your phone number:", reply_markup=markup)
 
-def process_register_phone(message):
-    phone = message.text.strip()
+@bot.message_handler(content_types=["contact"])
+def contact_handler(message):
     user_id = str(message.from_user.id)
-    if user_id in users:
-        users[user_id]["phone"] = phone
-        save_users()
-        bot.send_message(
-            message.chat.id,
-            f"Registration complete!\nName: {users[user_id]['name']}\nPhone: {phone}"
-        )
-        main_menu(message)
-    else:
-        bot.send_message(message.chat.id, "Something went wrong. Please type 'register' again.")
+    if message.contact:
+        phone = message.contact.phone_number
+        if user_id in users:
+            users[user_id]["phone"] = phone
+            save_users()
+            bot.send_message(
+                message.chat.id,
+                f"✅ Registration complete!\nName: {users[user_id]['name']}\nPhone: {phone}"
+            )
+            main_menu(message)
+        else:
+            bot.send_message(message.chat.id, "⚠ Something went wrong. Please register again.")
 
 @bot.message_handler(func=lambda m: m.text and m.text.strip().lower() == "log in")
 def login(message):
@@ -273,10 +401,35 @@ def list_books(message):
     try:
         with open(BOOKS_FILE, "r", encoding="utf-8") as f:
             book_data = json.load(f)
-        books_text = json.dumps(book_data, indent=4, ensure_ascii=False)
-        bot.send_message(message.chat.id, f"Users:\n{books_text}")
+        if not book_data:
+            bot.send_message(message.chat.id, "📭 No books found in the library.")
+            return
+        response = "📚 *List of Books in the Library:*\n\n"
+        for book in book_data:
+            title = book.get("title", "Unknown Title")
+            author = book.get("author", "Unknown Author")
+            book_id = book.get("id", "N/A")
+            available = book.get("available", True)
+            tags = ", ".join(book.get("tags", []))
+            description = book.get("description", "No description available.")
+            status_emoji = "✅ Available" if available else "❌ Not Available"
+            response += (
+                f"📘 *Title:* {title}\n"
+                f"✍️ *Author:* {author}\n"
+                f"🆔 *ID:* {book_id}\n"
+                f"🏷 *Tags:* {tags}\n"
+                f"📝 *Description:* {description}\n"
+                f"📦 *Status:* {status_emoji}\n\n"
+            )
+        bot.send_message(message.chat.id, response, parse_mode="Markdown")
     except FileNotFoundError:
-        bot.send_message(message.chat.id, "Books file not found.")
+        bot.send_message(message.chat.id, "❌ Books file not found.")
+    except Exception as e:
+        bot.send_message(message.chat.id, f"⚠ Error while loading books: {e}")
+
+threading.Thread(target=reminder_checker, daemon=True).start()
+
+
 
 @bot.message_handler(func=lambda message: message.text and message.text.strip().lower() == "borrowing book")
 def borrowing_book(message):
