@@ -558,7 +558,6 @@ def webhook():
     else:
         return "bad request", 403
 
-
 if __name__ == "__main__":
     print("Bot is running...")
     bot.remove_webhook()
