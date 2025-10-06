@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from datetime import datetime
 import threading
 import time
+from flask import request
 
 load_dotenv()
 
@@ -15,9 +16,9 @@ bot = telebot.TeleBot(TOKEN)
 ADMIN_USERNAME = os.getenv("ADMIN_USERNAME")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
 
-USERS_FILE = "user.json"
+USERS_FILE = "/tmp/user.json"
 BOOKS_FILE = "books.json"
-ADMINS_FILE = "admins.json"
+ADMINS_FILE = "/tmp/admins.json"
 
 if os.path.exists(BOOKS_FILE):
     with open(BOOKS_FILE, "r") as f:
@@ -540,10 +541,30 @@ def ads(message):
     markup_ads.add(back_menu)
     bot.send_message(message.chat.id, "To buy advertisements write to admin: @lazy_proger")
 
+WEBHOOK_PATH = f"/webhook/{TOKEN}"
+WEBHOOK_URL = f"https://library-system-o2cp.onrender.com{WEBHOOK_PATH}"
+
+@app.route("/", methods=["GET"])
+def index():
+    return "Bot is running on Render 🚀", 200
+
+@app.route(WEBHOOK_PATH, methods=["POST"])
+def webhook():
+    if request.headers.get("content-type") == "application/json":
+        json_string = request.get_data().decode("utf-8")
+        update = telebot.types.Update.de_json(json_string)
+        bot.process_new_updates([update])
+        return "ok", 200
+    else:
+        return "bad request", 403
+
+
 if __name__ == "__main__":
     print("Bot is running...")
     bot.remove_webhook()
     print("Webhook removed!")
     reminder_thread = threading.Thread(target=reminder_checker, daemon=True)
     reminder_thread.start()
-    bot.polling(none_stop=True)
+    bot.set_webhook(url=WEBHOOK_URL)
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
