@@ -16,9 +16,9 @@ bot = telebot.TeleBot(TOKEN)
 ADMIN_USERNAME = os.getenv("ADMIN_USERNAME")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
 
-USERS_FILE = "/tmp/user.json"
+USERS_FILE = "user.json"
 BOOKS_FILE = "books.json"
-ADMINS_FILE = "/tmp/admins.json"
+ADMINS_FILE = "admins.json"
 
 if os.path.exists(BOOKS_FILE):
     with open(BOOKS_FILE, "r") as f:
