@@ -6,7 +6,12 @@ from dotenv import load_dotenv
 from datetime import datetime
 import threading
 import time
-from flask import request
+from flask import Flask,request
+
+
+
+app = Flask(__name__)
+
 
 load_dotenv()
 
