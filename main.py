@@ -544,7 +544,7 @@ def ads(message):
     markup_ads.add(back_menu)
     bot.send_message(message.chat.id, "To buy advertisements write to admin: @lazy_proger")
 
-WEBHOOK_PATH = f"/webhook/{TOKEN}"
+WEBHOOK_PATH = f"/webhook/{TELEGRAM_TOKEN}"
 WEBHOOK_URL = f"https://library-system-o2cp.onrender.com{WEBHOOK_PATH}"
 
 @app.route("/", methods=["GET"])
