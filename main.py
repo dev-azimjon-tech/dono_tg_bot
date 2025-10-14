@@ -10,11 +10,14 @@ from flask import request
 
 load_dotenv()
 
-TOKEN = os.getenv("TELEGRAM_TOKEN")
-bot = telebot.TeleBot(TOKEN)
+TELEGRAM_TOKEN="8013244955:AAFDQjLpxvoUrXBdFqmRuKx4FMxJjc_W7Tw"
+ADMIN_USERNAME="Admin"
+ADMIN_PASSWORD=123
 
-ADMIN_USERNAME = os.getenv("ADMIN_USERNAME")
-ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
+
+
+bot = telebot.TeleBot(TELEGRAM_TOKEN)
+
 
 USERS_FILE = "user.json"
 BOOKS_FILE = "books.json"
